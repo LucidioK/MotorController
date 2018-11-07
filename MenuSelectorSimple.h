@@ -31,7 +31,7 @@ class MenuSelectorSimple {
       int btn = MENUSELECTORSIMPLE_BTN_NONE;
       while (btn != MENUSELECTORSIMPLE_BTN_SELECT) {
         printOption(_items[pos]);  
-        btn = read_LCD_buttons();
+        btn = MenuSelectorSimple::ReadLCDButtons();
         if (btn != MENUSELECTORSIMPLE_BTN_NONE)
         {
           //serialSSI("Select", "btn", btn);
@@ -53,21 +53,17 @@ class MenuSelectorSimple {
      return _items[Select()];
     };
 
-    void PrintAt(String s, int col, int row) {
+    static void PrintAt(String s, int col, int row) {
       menuSelectorSimpleLCD.setCursor(col, row);
       while (s.length() < 16) { s += " "; }
       menuSelectorSimpleLCD.print(s);
     }
-    
-  private:
-    String        *_items;
-    int           _itemsCount;
-    
-    void printTitle(String title)   { PrintAt(title, 0, 0); }
 
-    void printOption(String option) { PrintAt(option, 0, 1); }
+    static bool AnyButtonHit() {
+      return MENUSELECTORSIMPLE_BTN_NONE != MenuSelectorSimple::ReadLCDButtons();
+    }
 
-    int read_LCD_buttons()
+    static int ReadLCDButtons()
     {
      int adc_key_in = analogRead(0);      // read the value from the sensor 
     
@@ -82,5 +78,14 @@ class MenuSelectorSimple {
      if (adc_key_in < 450)  return MENUSELECTORSIMPLE_BTN_LEFT; 
      if (adc_key_in < 850)  return MENUSELECTORSIMPLE_BTN_SELECT;  
      return MENUSELECTORSIMPLE_BTN_NONE;  // when all others fail, return this...
-    }
+    }    
+    
+  private:
+    String        *_items;
+    int           _itemsCount;
+    
+    void printTitle(String title)   { MenuSelectorSimple::PrintAt(title, 0, 0); }
+
+    void printOption(String option) { MenuSelectorSimple::PrintAt(option, 0, 1); }
+
 };
