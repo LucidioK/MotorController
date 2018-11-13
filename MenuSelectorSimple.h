@@ -14,6 +14,7 @@ class MenuSelectorSimple {
     MenuSelectorSimple(String *items) {
       serialSSI("MenuSelectorSimple.ctor", "CONSTRUCTOR", millis()/1000);
       menuSelectorSimpleLCD.begin(16, 2);
+      menuSelectorSimpleLCD.display();
       _items = items;
       _itemsCount = 0;
       for (int i = 0; _items[i].length() > 0; i++) {
@@ -26,12 +27,14 @@ class MenuSelectorSimple {
 
     int Select() {
       serialSSI("Select", _items[0], _itemsCount);
+      MenuSelectorSimple::Display();
       printTitle(_items[0]);
       int pos = 1;
       int btn = MENUSELECTORSIMPLE_BTN_NONE;
       while (btn != MENUSELECTORSIMPLE_BTN_SELECT) {
         printOption(_items[pos]);  
         btn = MenuSelectorSimple::ReadLCDButtons();
+        //serialWaitRead("After ReadLCDButtons");
         if (btn != MENUSELECTORSIMPLE_BTN_NONE)
         {
           //serialSSI("Select", "btn", btn);
@@ -54,9 +57,11 @@ class MenuSelectorSimple {
     };
 
     static void PrintAt(String s, int col, int row) {
+      menuSelectorSimpleLCD.display();
       menuSelectorSimpleLCD.setCursor(col, row);
-      while (s.length() < 16) { s += " "; }
+      while (s.length() < (16-col)) { s += " "; }
       menuSelectorSimpleLCD.print(s);
+      menuSelectorSimpleLCD.display();
     }
 
     static bool AnyButtonHit() {
@@ -66,7 +71,7 @@ class MenuSelectorSimple {
     static int ReadLCDButtons()
     {
      int adc_key_in = analogRead(0);      // read the value from the sensor 
-    
+     Display();
      // my buttons when read are centered at these valies: 0, 144, 329, 504, 741
      // we add approx 50 to those values and check to see if we are close
      if (adc_key_in > 1000) return MENUSELECTORSIMPLE_BTN_NONE; // We make this the 1st option for speed reasons since it will be the most likely result
@@ -79,6 +84,9 @@ class MenuSelectorSimple {
      if (adc_key_in < 850)  return MENUSELECTORSIMPLE_BTN_SELECT;  
      return MENUSELECTORSIMPLE_BTN_NONE;  // when all others fail, return this...
     }    
+
+    static void Display(){ menuSelectorSimpleLCD.display(); }
+    static void NoDisplay(){ menuSelectorSimpleLCD.noDisplay(); }
     
   private:
     String        *_items;

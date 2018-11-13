@@ -1,6 +1,7 @@
 
 #include "SerialTrace.h"
 #include "MenuSelectorSimple.h"
+#include "L298NController.h"
 #include <EEPROM.h>
 
 #define STATUS_SELECT        0
@@ -11,8 +12,8 @@
 
 String selectOperationMenu[] =
 {
-  "Which program v3", // STATUS_SELECT
-  " Watch wind",      // STATUS_RUNNING_WATCH
+  "Which program v9", // STATUS_SELECT
+  " WatchWnd",        // STATUS_RUNNING_WATCH
   " Mixer",           // STATUS_RUNNING_MIX
   ""
 };
@@ -23,32 +24,42 @@ unsigned int  intervalBetweenMotorEngagementsInSeconds;
 unsigned int  motorEngagementDurationInSeconds; 
 unsigned int  motorPower0to255;
 bool keepRunning;
-const int enA=2, in1=3;
+bool firstRun;
+const int enA=11, in1=10;
 unsigned long latestExecutionInSeconds;
+L298NController l298NController(enA, in1);
 
 void RunMotorIfNeeded() {
   unsigned long currentSecond = millis() / 1000;
+  
   if (currentSecond < latestExecutionInSeconds) { // millis will overflow after ~50 days...
     latestExecutionInSeconds = 0;
   }
+  
   unsigned long elapsedFromLatestExecution = currentSecond - latestExecutionInSeconds;
+  
   serialSSI("RunMotorIfNeeded", "elapsedFromLatestExecution", elapsedFromLatestExecution);
   serialSSI("RunMotorIfNeeded", "intervalBetweenMotorEngagementsInSeconds", intervalBetweenMotorEngagementsInSeconds);
-
-  if (elapsedFromLatestExecution > intervalBetweenMotorEngagementsInSeconds) {
-    digitalWrite(in1, HIGH);
-    analogWrite(enA, motorPower0to255);
-    delay(motorEngagementDurationInSeconds * 1000);
-
+  MenuSelectorSimple::PrintAt(String(elapsedFromLatestExecution), 9, 1);
+  MenuSelectorSimple::PrintAt(String(intervalBetweenMotorEngagementsInSeconds), 13, 1);
+  
+  if (firstRun || elapsedFromLatestExecution > intervalBetweenMotorEngagementsInSeconds) {
+    MenuSelectorSimple::PrintAt("*", 15, 1);
+    l298NController.Start(L298N_MOTOR_A, motorPower0to255, motorEngagementDurationInSeconds * 1000, keepRunning);
     latestExecutionInSeconds = millis() / 1000;
+    MenuSelectorSimple::PrintAt("_", 15, 1);
   }
+  
   if (!keepRunning) {
     digitalWrite(in1, LOW);
   }
+  
+  firstRun = false;
 }
 
 
 void setup() {
+  firstRun = true;
   previousStatus = STATUS_SELECT;
   loopCount = intervalBetweenMotorEngagementsInSeconds = motorEngagementDurationInSeconds = motorPower0to255 = latestExecutionInSeconds = 0;
   keepRunning = false;
@@ -64,16 +75,11 @@ void setup() {
 
 void loop() {
   serialSSI("loop", "-----------", millis());
-  
+  MenuSelectorSimple::Display();
   unsigned char currentStatus = EEPROM[STATUS_ADDRESS_ON_EEPROM];
   if (currentStatus == STATUS_SELECT)
   {
-    for (int i = 0; i < 10; i++) {
-      digitalWrite(in1, HIGH);
-      delay(50);      
-      digitalWrite(in1, LOW);
-      delay(50);
-    }
+    l298NController.Stop(L298N_MOTOR_A);
     MenuSelectorSimple ms = MenuSelectorSimple(selectOperationMenu);
     int pos = ms.Select();
     EEPROM[STATUS_ADDRESS_ON_EEPROM] = pos;
@@ -88,21 +94,19 @@ void loop() {
     if (MenuSelectorSimple::AnyButtonHit()) {
       EEPROM[STATUS_ADDRESS_ON_EEPROM] = STATUS_SELECT;
     }
-    //if (previousStatus != currentStatus) {
-      if (currentStatus == STATUS_RUNNING_WATCH) {
-        intervalBetweenMotorEngagementsInSeconds = 60;
-        motorEngagementDurationInSeconds = 1;
-        motorPower0to255 = 125;
-        keepRunning = false;
-      }
-      if (currentStatus == STATUS_RUNNING_MIX) {
-        intervalBetweenMotorEngagementsInSeconds = 0;
-        motorEngagementDurationInSeconds = 1;
-        motorPower0to255 = 255;
-        keepRunning = true;
-      }
-      RunMotorIfNeeded();
-    //}
+    if (currentStatus == STATUS_RUNNING_WATCH) {
+      intervalBetweenMotorEngagementsInSeconds = 15 * 60;
+      motorEngagementDurationInSeconds = 1;
+      motorPower0to255 = 128;
+      keepRunning = false;
+    }
+    if (currentStatus == STATUS_RUNNING_MIX) {
+      intervalBetweenMotorEngagementsInSeconds = 0;
+      motorEngagementDurationInSeconds = 1;
+      motorPower0to255 = 255;
+      keepRunning = true;
+    }
+    RunMotorIfNeeded();
   }
   previousStatus = currentStatus;
   delay(500);                       // wait for 1/2 seconds
