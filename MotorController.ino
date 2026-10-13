@@ -15,7 +15,7 @@
 
 String selectOperationMenu[] =
 {
-  "Which program vD", // STATUS_SELECT
+  "Which program vG", // STATUS_SELECT
   " WatchWnd",        // STATUS_RUNNING_WATCH
   " Mixer",           // STATUS_RUNNING_MIX
   " Random",          // STATUS_RUNNING_RANDOM
@@ -52,7 +52,7 @@ L298NController l298NController(in1, enA, in2, csA);
 //  If a value is zero, it will stop the motor.
 //  If a value is negative, it will run the motor in reverse.
 // 
-void RunMotorIfNeeded(int *program, int programSize) {
+void RunMotorIfNeeded(int *program, int programSize, int power = 255) {
   unsigned long currentSecond = millis() / 1000;
   
   if (currentSecond < latestExecutionInSeconds) { // millis will overflow after ~50 days...
@@ -70,7 +70,7 @@ void RunMotorIfNeeded(int *program, int programSize) {
     MenuSelectorSimple::PrintAt("*", 15, 1);
     for (int i =0; i < programSize; i++) {
       if (program[i]) {
-        l298NController.Start(L298N_MOTOR_A, 255, program[i]);
+        l298NController.Start(L298N_MOTOR_A, power, program[i]);
       } else {
         l298NController.Stop(L298N_MOTOR_A);
       }
@@ -121,18 +121,20 @@ void loop() {
     
     int* program;
     int  programCount;
+    int  power = 255;
 
     switch (currentStatus) {
       case STATUS_RUNNING_WATCH:
         intervalBetweenMotorEngagementsInSeconds = 5 * 60;
         program = watchProgram;
         programCount = watchProgramCount;
+        power = 64;
         break;
       case STATUS_RUNNING_MIX:
         intervalBetweenMotorEngagementsInSeconds = 0;
         program = mixProgram;
         programCount = mixProgramCount;
-        break;
+        break;                               
       case STATUS_RUNNING_RANDOM:
         intervalBetweenMotorEngagementsInSeconds = random(2, 10);
         for (int i =0; i < randomProgramCount; i++) {
@@ -150,8 +152,8 @@ void loop() {
         programCount = reverseProgramCount;
         break;
     }
-    RunMotorIfNeeded(program, programCount);
+    RunMotorIfNeeded(program, programCount, power);
   }
   previousStatus = currentStatus;
-  delay(500);                       // wait for 1/2 seconds
+  delay(50);
 }
